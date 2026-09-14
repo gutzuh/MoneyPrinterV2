@@ -3,6 +3,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from PIL import Image, ImageDraw, ImageFont
+
 from .models import ShortPlan, TranscriptSegment
 
 
@@ -108,4 +110,54 @@ def write_metadata(plan: ShortPlan, output_path: str) -> str:
         ) + "\n",
         encoding="utf-8",
     )
+    return output_path
+
+
+def create_topic_card(title: str, category: str, output_path: str) -> str:
+    palettes = {"historia": (46, 27, 75), "tecnologia": (5, 55, 82), "curiosidade": (17, 73, 55)}
+    base = palettes.get(category, (35, 35, 45))
+    image = Image.new("RGB", (1080, 1920), base)
+    draw = ImageDraw.Draw(image)
+    for y in range(1920):
+        factor = y / 1920
+        color = tuple(max(0, int(value * (1 - factor * .55))) for value in base)
+        draw.line((0, y, 1080, y), fill=color)
+    candidates = [
+        Path("/run/current-system/sw/share/fonts/truetype/DejaVuSans-Bold.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+    ]
+    font_path = next((path for path in candidates if path.exists()), None)
+    font = ImageFont.truetype(str(font_path), 84) if font_path else ImageFont.load_default()
+    label_font = ImageFont.truetype(str(font_path), 40) if font_path else ImageFont.load_default()
+    words, lines, current = title.upper().split(), [], ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if draw.textbbox((0, 0), candidate, font=font)[2] > 880 and current:
+            lines.append(current); current = word
+        else:
+            current = candidate
+    if current: lines.append(current)
+    y = 520
+    draw.rounded_rectangle((70, 130, 440, 210), 25, fill=(255, 255, 255))
+    draw.text((100, 145), category.upper(), font=label_font, fill=base)
+    for line in lines[:5]:
+        draw.text((90, y), line, font=font, fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
+        y += 110
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    image.save(output_path, quality=95)
+    return output_path
+
+
+def render_original_short(card_path: str, narration_path: str, subtitles_path: str, output_path: str) -> str:
+    duration = media_duration(narration_path) + 0.35
+    subtitle_filter = str(Path(subtitles_path).resolve()).replace("'", "'\\''").replace(":", "\\:")
+    filters = (
+        "[0:v]scale=1200:2134,zoompan=z='min(zoom+0.0007,1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+        f"d={max(1, round(duration * 30))}:s=1080x1920:fps=30,"
+        f"subtitles='{subtitle_filter}':force_style='Alignment=2,FontSize=20,Bold=1,PrimaryColour=&H00FFFFFF,"
+        "OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=210'[v]"
+    )
+    _run(["ffmpeg", "-y", "-loop", "1", "-i", card_path, "-i", narration_path, "-filter_complex", filters,
+          "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac",
+          "-b:a", "192k", "-t", f"{duration:.3f}", "-movflags", "+faststart", output_path])
     return output_path
