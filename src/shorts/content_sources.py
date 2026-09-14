@@ -76,7 +76,16 @@ def _history_topic(rng: random.Random) -> ContentTopic:
     return ContentTopic("historia", f"Neste dia, em {event['year']}", event["text"], "Wikimedia — Neste dia", url)
 
 
-def collect_topic(categories: tuple[str, ...], state_path: str, seed: int | None = None) -> ContentTopic:
+def _topic_id(topic: ContentTopic) -> str:
+    return hashlib.sha256(f"{topic.category}:{topic.title}".encode()).hexdigest()[:20]
+
+
+def mark_topic_seen(topic: ContentTopic, state_path: str) -> None:
+    state = Path(state_path)
+    _remember(state, _topic_id(topic), _seen_ids(state))
+
+
+def collect_topic(categories: tuple[str, ...], state_path: str, seed: int | None = None, remember: bool = True) -> ContentTopic:
     allowed = [item for item in categories if item in {"historia", "tecnologia", "curiosidade"}]
     if not allowed:
         raise ValueError("auto_categories must contain historia, tecnologia or curiosidade")
@@ -86,9 +95,10 @@ def collect_topic(categories: tuple[str, ...], state_path: str, seed: int | None
     for _ in range(12):
         category = rng.choice(allowed)
         topic = _history_topic(rng) if category == "historia" else _wikipedia_topic(category, rng)
-        topic_id = hashlib.sha256(f"{topic.category}:{topic.title}".encode()).hexdigest()[:20]
+        topic_id = _topic_id(topic)
         if topic_id not in seen:
-            _remember(state, topic_id, seen)
+            if remember:
+                _remember(state, topic_id, seen)
             return topic
     raise RuntimeError("Could not find an unused topic after 12 attempts")
 

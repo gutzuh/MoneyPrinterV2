@@ -10,7 +10,9 @@ in {
   config = lib.mkIf cfg.enable {
     systemd.services.auto-shorts = {
       description = "Generate and upload one original YouTube Short";
-      serviceConfig = { Type = "oneshot"; User = cfg.user; WorkingDirectory = cfg.projectDir; };
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
+      serviceConfig = { Type = "oneshot"; User = cfg.user; WorkingDirectory = cfg.projectDir; UMask = "0077"; };
       path = [ pkgs.bash pkgs.ffmpeg-full pkgs.python312 pkgs.fontconfig pkgs.dejavu_fonts ];
       script = ''
         set -eu

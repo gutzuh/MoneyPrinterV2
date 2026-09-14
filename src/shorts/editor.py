@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .models import ShortPlan, TranscriptSegment
+from .models import MediaAsset, ShortPlan, Storyboard, TranscriptSegment, WordTiming
 
 
 def _run(command: list[str]) -> None:
@@ -231,3 +231,85 @@ def render_original_short(
           "-map", "[v]", "-map", f"{len(visual_paths)}:a", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac",
           "-b:a", "192k", "-t", f"{duration:.3f}", "-movflags", "+faststart", output_path])
     return output_path
+
+
+def write_karaoke_ass(words: list[WordTiming], output_path: str, group_size: int = 3) -> str:
+    header = """[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,82,&H00FFFFFF,&H0000D7FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,5,1,2,70,70,290,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    def stamp(value: float) -> str:
+        cs = max(0, round(value * 100)); hours, rest = divmod(cs, 360000); minutes, rest = divmod(rest, 6000); seconds, centis = divmod(rest, 100)
+        return f"{hours}:{minutes:02}:{seconds:02}.{centis:02}"
+    events = []
+    for index in range(0, len(words), group_size):
+        group = words[index:index + group_size]
+        if not group:
+            continue
+        karaoke = " ".join(f"{{\\kf{max(1, round((item.end-item.start)*100))}}}{item.word}" for item in group)
+        events.append(f"Dialogue: 0,{stamp(group[0].start)},{stamp(group[-1].end)},Default,,0,0,0,,{karaoke}")
+    Path(output_path).write_text(header + "\n".join(events) + "\n", encoding="utf-8")
+    return output_path
+
+
+def render_dynamic_short(
+    card_path: str,
+    narration_path: str,
+    output_path: str,
+    board: Storyboard,
+    assets: list[MediaAsset],
+    background: MediaAsset | None,
+    words: list[WordTiming],
+) -> str:
+    """Render normalized scene clips, then add narration and karaoke captions."""
+    require_ffmpeg()
+    output = Path(output_path)
+    scene_dir = output.parent / "scenes"
+    scene_dir.mkdir(parents=True, exist_ok=True)
+    clips = []
+    for index, (scene, asset) in enumerate(zip(board.scenes, assets)):
+        duration = max(1.0, scene.end - scene.start)
+        clip = scene_dir / f"scene-{index:02}.mp4"
+        fade_out = max(0.0, duration - 0.22)
+        base_filter = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30"
+        fade = f",fade=t=in:st=0:d=0.18,fade=t=out:st={fade_out:.3f}:d=0.22"
+        if asset.kind == "video" and asset.path:
+            command = ["ffmpeg", "-y", "-stream_loop", "-1", "-ss", f"{(index * 7.31) % 45:.2f}", "-i", asset.path,
+                       "-t", f"{duration:.3f}", "-vf", base_filter + ",drawbox=x=0:y=0:w=iw:h=ih:color=black@0.18:t=fill" + fade]
+        elif asset.kind == "image" and asset.path and background and background.path:
+            command = ["ffmpeg", "-y", "-stream_loop", "-1", "-ss", f"{(index * 5.17) % 35:.2f}", "-i", background.path,
+                       "-loop", "1", "-i", asset.path, "-t", f"{duration:.3f}", "-filter_complex",
+                       f"[0:v]{base_filter},boxblur=8:2,drawbox=x=0:y=0:w=iw:h=ih:color=black@0.30:t=fill[bg];"
+                       "[1:v]scale=900:1080:force_original_aspect_ratio=decrease,pad=920:1100:10:10:black@0.6[fg];"
+                       f"[bg][fg]overlay=(W-w)/2:250:shortest=1{fade}[v]", "-map", "[v]"]
+        else:
+            source = asset.path if asset.kind == "image" and asset.path else card_path
+            frames = max(1, round(duration * 30))
+            command = ["ffmpeg", "-y", "-loop", "1", "-framerate", "1", "-i", source, "-t", f"{duration:.3f}",
+                       "-vf", f"scale=1200:2134:force_original_aspect_ratio=increase,crop=1200:2134,"
+                       f"zoompan=z='if(eq(on,0),1.02,min(zoom+0.0012,1.13))':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d={frames}:s=1080x1920:fps=30,"
+                       "drawbox=x=0:y=0:w=iw:h=ih:color=black@0.20:t=fill" + fade]
+        command += ["-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p", "-r", "30", str(clip)]
+        _run(command)
+        clips.append(clip)
+    concat_file = scene_dir / "concat.txt"
+    concat_file.write_text("".join(f"file '{path.resolve()}'\n" for path in clips), encoding="utf-8")
+    base_video = output.parent / "visuals.mp4"
+    _run(["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_file), "-c", "copy", str(base_video)])
+    captions = write_karaoke_ass(words, str(output.parent / "captions.ass"))
+    subtitle_filter = str(Path(captions).resolve()).replace("'", "'\\''").replace(":", "\\:")
+    duration = media_duration(narration_path)
+    _run(["ffmpeg", "-y", "-i", str(base_video), "-i", narration_path,
+          "-filter_complex", f"[0:v]subtitles='{subtitle_filter}'[v];[1:a]loudnorm=I=-16:TP=-1.5:LRA=11,aresample=async=1:first_pts=0[a]",
+          "-map", "[v]", "-map", "[a]", "-t", f"{duration:.3f}", "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+          "-pix_fmt", "yuv420p", "-r", "30", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(output)])
+    return str(output)

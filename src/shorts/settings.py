@@ -39,6 +39,19 @@ class ShortsSettings:
     auto_categories: tuple[str, ...] = ("historia", "tecnologia", "curiosidade")
     auto_target_duration: int = 32
     tts_rate: str = "+8%"
+    media_cache_dir: str = ".mp/asset-cache"
+    local_backgrounds_dir: str = "assets/backgrounds"
+    media_providers: tuple[str, ...] = ("local", "wikimedia", "pexels")
+    caption_highlight_color: str = "&H0000D7FF"
+
+    def __post_init__(self) -> None:
+        if not 15 <= self.min_duration < self.max_duration <= 60:
+            raise ValueError("short duration range must be between 15 and 60 seconds")
+        if self.youtube_privacy not in {"private", "unlisted", "public"}:
+            raise ValueError("youtube_privacy must be private, unlisted or public")
+        allowed = {"historia", "tecnologia", "curiosidade"}
+        if not self.auto_categories or not set(self.auto_categories) <= allowed:
+            raise ValueError("invalid auto_categories")
 
 
 def load_settings(config_path: str = "config.json", require_groq: bool = True) -> ShortsSettings:
@@ -79,4 +92,8 @@ def load_settings(config_path: str = "config.json", require_groq: bool = True) -
         auto_categories=tuple(value("auto_categories", ["historia", "tecnologia", "curiosidade"])),
         auto_target_duration=int(value("auto_target_duration", 32)),
         tts_rate=str(value("tts_rate", "+8%")),
+        media_cache_dir=str(value("media_cache_dir", ".mp/asset-cache")),
+        local_backgrounds_dir=str(value("local_backgrounds_dir", "assets/backgrounds")),
+        media_providers=tuple(value("media_providers", ["local", "wikimedia", "pexels"])),
+        caption_highlight_color=str(value("caption_highlight_color", "&H0000D7FF")),
     )

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import importlib.util
+import importlib
 import os
 import shutil
 import sys
@@ -18,11 +18,12 @@ def main() -> int:
             print(f"[FAIL] {command} não encontrado")
             failures += 1
 
-    for module in ("faster_whisper", "edge_tts", "googleapiclient", "google_auth_oauthlib"):
-        if importlib.util.find_spec(module):
+    for module in ("av", "faster_whisper", "edge_tts", "googleapiclient", "google_auth_oauthlib"):
+        try:
+            importlib.import_module(module)
             print(f"[OK] Python: {module}")
-        else:
-            print(f"[FAIL] Pacote Python ausente: {module}")
+        except Exception as exc:
+            print(f"[FAIL] Python {module}: {type(exc).__name__}: {exc}")
             failures += 1
 
     if os.environ.get("GROQ_API_KEY", "").strip():
