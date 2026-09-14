@@ -41,7 +41,10 @@ A descrição deve terminar com: Fonte: {topic.source_url}
         narration = str(data["narration"]).strip()
         count = len(narration.split())
         if minimum_words <= count <= maximum_words + 8:
-            return ShortPlan(0, float(target), narration, str(data["title"])[:100], str(data["description"]), [str(x) for x in data.get("tags", [])][:12])
+            description = str(data["description"]).strip()
+            if topic.source_url not in description:
+                description = f"{description}\n\nFonte: {topic.source_url}"
+            return ShortPlan(0, float(target), narration, str(data["title"])[:100], description, [str(x) for x in data.get("tags", [])][:12])
         last_error = ValueError(f"Groq returned {count} words; expected {minimum_words}-{maximum_words}")
         prompt += f"\nA tentativa anterior teve {count} palavras. Respeite rigorosamente a faixa."
     raise last_error or RuntimeError("Groq failed to create a script")
