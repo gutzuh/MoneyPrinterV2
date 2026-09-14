@@ -1,7 +1,9 @@
 __pycache__
 config.json
+client_secret.json
 .mp/
 venv/
+input/
 Songs/
 google-maps-scraper-0.9.7/
 niche.txt
