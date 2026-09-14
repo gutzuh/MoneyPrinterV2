@@ -4,7 +4,7 @@ in {
   options.services.auto-shorts = {
     enable = lib.mkEnableOption "automatic YouTube Shorts";
     user = lib.mkOption { type = lib.types.str; };
-    projectDir = lib.mkOption { type = lib.types.path; };
+    projectDir = lib.mkOption { type = lib.types.str; };
     times = lib.mkOption { type = lib.types.listOf lib.types.str; default = [ "11:30" "18:30" ]; };
   };
   config = lib.mkIf cfg.enable {
