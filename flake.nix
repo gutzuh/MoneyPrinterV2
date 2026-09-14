@@ -12,7 +12,7 @@
         let pkgs = import nixpkgs { inherit system; };
         in {
           default = pkgs.mkShell {
-            packages = with pkgs; [ python312 ffmpeg-full imagemagick git stdenv.cc.cc zlib dejavu_fonts ];
+            packages = with pkgs; [ python312 ffmpeg-full imagemagick git stdenv.cc.cc zlib dejavu_fonts fontconfig ];
             shellHook = ''
               export PYTHONNOUSERSITE=1
               export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.zlib ]}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
