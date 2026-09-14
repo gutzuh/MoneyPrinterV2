@@ -12,7 +12,15 @@ source venv/bin/activate
 python scripts/auto_short.py
 python scripts/auto_short.py --category tecnologia
 python scripts/auto_short.py --upload
+python scripts/auto_short.py --dry-run
+python scripts/auto_short.py --preview --visual-provider wikimedia
 ```
+
+Para mídia mais dinâmica, defina opcionalmente `PEXELS_API_KEY` no `.env` e
+adicione vídeos próprios/licenciados em `assets/backgrounds/`. Cada execução
+salva `storyboard.json`, `media_manifest.json`, `captions.ass` e
+`quality_report.json`. O upload é cancelado automaticamente se resolução,
+codecs, áudio, duração ou quantidade de cenas estiverem incorretos.
 
 Use `youtube_privacy: private` durante os primeiros testes. O arquivo `.env` deve
 conter `export GROQ_API_KEY='...'` e ter permissão `chmod 600 .env`.

@@ -22,6 +22,7 @@ def authorize(client_secrets: str, token_file: str) -> Credentials:
         credentials = flow.run_local_server(port=0)
     token_path.parent.mkdir(parents=True, exist_ok=True)
     token_path.write_text(credentials.to_json(), encoding="utf-8")
+    token_path.chmod(0o600)
     return credentials
 
 

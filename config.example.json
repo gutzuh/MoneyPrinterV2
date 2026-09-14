@@ -49,6 +49,10 @@
     ,"auto_categories": ["historia", "tecnologia", "curiosidade"]
     ,"auto_target_duration": 32
     ,"tts_rate": "+8%"
+    ,"media_cache_dir": ".mp/asset-cache"
+    ,"local_backgrounds_dir": "assets/backgrounds"
+    ,"media_providers": ["local", "wikimedia", "pexels"]
+    ,"caption_highlight_color": "&H0000D7FF"
   },
   "post_bridge": {
     "enabled": false,

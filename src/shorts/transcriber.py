@@ -1,6 +1,6 @@
 from faster_whisper import WhisperModel
 
-from .models import TranscriptSegment
+from .models import TranscriptSegment, WordTiming
 from .settings import ShortsSettings
 
 
@@ -41,3 +41,10 @@ def transcribe(
                 )
             )
     return captions
+
+
+def transcribe_words(media_path: str, settings: ShortsSettings) -> list[WordTiming]:
+    model = WhisperModel(settings.whisper_model, device=settings.whisper_device, compute_type=settings.whisper_compute_type)
+    segments, _ = model.transcribe(media_path, vad_filter=True, language="pt", word_timestamps=True)
+    return [WordTiming(word.word.strip(), float(word.start), float(word.end))
+            for segment in segments for word in (segment.words or []) if word.word.strip()]
