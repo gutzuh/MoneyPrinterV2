@@ -25,7 +25,7 @@ Importe `nix/auto-shorts.nix` na configuração do NixOS e adicione:
 services.auto-shorts = {
   enable = true;
   user = "miguel";
-  projectDir = /home/miguel/Projects/MoneyPrinterV2;
+  projectDir = "/home/miguel/Projects/MoneyPrinterV2";
   times = [ "11:30" "18:30" ];
 };
 ```
