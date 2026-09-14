@@ -46,6 +46,9 @@
     "youtube_client_secrets": "client_secret.json",
     "youtube_token_file": ".mp/youtube_token.json",
     "youtube_privacy": "private"
+    ,"auto_categories": ["historia", "tecnologia", "curiosidade"]
+    ,"auto_target_duration": 32
+    ,"tts_rate": "+8%"
   },
   "post_bridge": {
     "enabled": false,
