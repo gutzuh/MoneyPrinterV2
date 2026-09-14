@@ -65,6 +65,42 @@ def write_srt(segments: list[TranscriptSegment], output_path: str) -> str:
     return output_path
 
 
+def _write_ass_subtitles(segments: list[TranscriptSegment], output_path: str) -> str:
+    def timestamp(value: float) -> str:
+        centiseconds = max(0, round(value * 100))
+        hours, remainder = divmod(centiseconds, 360_000)
+        minutes, remainder = divmod(remainder, 6_000)
+        seconds, centis = divmod(remainder, 100)
+        return f"{hours:d}:{minutes:02}:{seconds:02}.{centis:02}"
+
+    def escape(text: str) -> str:
+        return text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
+
+    lines = [
+        "[Script Info]",
+        "ScriptType: v4.00+",
+        "PlayResX: 1080",
+        "PlayResY: 1920",
+        "WrapStyle: 0",
+        "ScaledBorderAndShadow: yes",
+        "",
+        "[V4+ Styles]",
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+        "Style: Default,Arial,104,&H00FFFFFF,&H000000FF,&H00000000,&H96000000,-1,0,0,0,100,100,0,0,1,8,1,2,70,70,300,1",
+        "",
+        "[Events]",
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+    ]
+    for segment in segments:
+        lines.append(
+            "Dialogue: 0,"
+            f"{timestamp(segment.start)},{timestamp(segment.end)},Default,,0,0,0,,"
+            f"{escape(segment.text.strip())}"
+        )
+    Path(output_path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return output_path
+
+
 def render_short(
     source_path: str,
     narration_path: str,
@@ -152,16 +188,46 @@ def create_topic_card(title: str, category: str, output_path: str) -> str:
     return output_path
 
 
-def render_original_short(card_path: str, narration_path: str, subtitles_path: str, output_path: str) -> str:
+def render_original_short(
+    card_path: str,
+    narration_path: str,
+    subtitles_path: str,
+    output_path: str,
+    images: list[str] | None = None,
+) -> str:
     duration = media_duration(narration_path) + 0.35
-    subtitle_filter = str(Path(subtitles_path).resolve()).replace("'", "'\\''").replace(":", "\\:")
-    filters = (
-        "[0:v]scale=1200:2134,zoompan=z='min(zoom+0.0007,1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
-        f"d={max(1, round(duration * 30))}:s=1080x1920:fps=30,"
-        f"subtitles='{subtitle_filter}':force_style='Alignment=2,FontSize=20,Bold=1,PrimaryColour=&H00FFFFFF,"
-        "OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=210'[v]"
-    )
-    _run(["ffmpeg", "-y", "-loop", "1", "-i", card_path, "-i", narration_path, "-filter_complex", filters,
-          "-map", "[v]", "-map", "1:a", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac",
+    ass_path = str(Path(output_path).with_suffix(".ass"))
+    segments = []
+    blocks = Path(subtitles_path).read_text(encoding="utf-8").strip().split("\n\n")
+    for block in blocks:
+        lines = block.splitlines()
+        if len(lines) >= 3 and "-->" in lines[1]:
+            start_raw, end_raw = lines[1].split("-->")
+
+            def seconds(value: str) -> float:
+                hours, minutes, rest = value.strip().replace(",", ".").split(":")
+                return int(hours) * 3600 + int(minutes) * 60 + float(rest)
+
+            segments.append(TranscriptSegment(seconds(start_raw), seconds(end_raw), " ".join(lines[2:])))
+    subtitle_filter = str(Path(_write_ass_subtitles(segments, ass_path)).resolve()).replace("'", "'\\''").replace(":", "\\:")
+    visual_paths = [card_path, *(images or [])]
+    visual_duration = duration / len(visual_paths)
+    inputs = []
+    video_parts = []
+    for index, path in enumerate(visual_paths):
+        # One source frame lets zoompan create exactly one animated segment.
+        inputs += ["-loop", "1", "-framerate", "1", "-t", "1", "-i", path]
+        frames = max(1, round(visual_duration * 30))
+        video_parts.append(
+            f"[{index}:v]scale=1200:2134:force_original_aspect_ratio=increase,crop=1200:2134,"
+            f"zoompan=z='min(zoom+0.0008,1.10)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s=1080x1920:fps=30,"
+            "drawbox=x=0:y=0:w=iw:h=ih:color=black@0.20:t=fill,setsar=1[v%02d]" % index
+        )
+    concat_inputs = "".join(f"[v{index:02d}]" for index in range(len(visual_paths)))
+    filters = ";".join(video_parts) + ";" + concat_inputs + f"concat=n={len(visual_paths)}:v=1:a=0[base];"
+    filters += f"[base]subtitles='{subtitle_filter}':force_style='Alignment=2,FontSize=76,Bold=1,PrimaryColour=&H00FFFFFF,"
+    filters += "OutlineColour=&H00000000,BorderStyle=1,Outline=4,Shadow=1,MarginV=300'[v]"
+    _run(["ffmpeg", "-y", *inputs, "-i", narration_path, "-filter_complex", filters,
+          "-map", "[v]", "-map", f"{len(visual_paths)}:a", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac",
           "-b:a", "192k", "-t", f"{duration:.3f}", "-movflags", "+faststart", output_path])
     return output_path

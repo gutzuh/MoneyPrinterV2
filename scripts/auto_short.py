@@ -10,7 +10,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from shorts.auto_content import create_original_plan
-from shorts.content_sources import collect_topic
+from shorts.content_sources import collect_topic, download_topic_images
 from shorts.editor import create_topic_card, render_original_short, write_metadata, write_srt
 from shorts.settings import load_settings
 from shorts.transcriber import transcribe
@@ -45,7 +45,8 @@ def main() -> int:
     captions = write_srt(transcribe(narration, settings, words_per_caption=3), str(job / "captions.srt"))
     print("[4/5] Renderizando visual original...")
     card = create_topic_card(topic.title, topic.category, str(job / "card.jpg"))
-    video = render_original_short(card, narration, captions, str(job / "short.mp4"))
+    images = download_topic_images(topic, str(job / "images"))
+    video = render_original_short(card, narration, captions, str(job / "short.mp4"), images=images)
     metadata = write_metadata(plan, str(job / "metadata.json"))
     result = {"video": video, "metadata": metadata, "source": topic.source_url, "uploaded": False}
     if args.upload:

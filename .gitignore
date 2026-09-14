@@ -1,5 +1,7 @@
 __pycache__
 config.json
+.env
+.env.*
 client_secret.json
 .mp/
 venv/
