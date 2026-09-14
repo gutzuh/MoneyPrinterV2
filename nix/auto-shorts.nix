@@ -11,7 +11,7 @@ in {
     systemd.services.auto-shorts = {
       description = "Generate and upload one original YouTube Short";
       serviceConfig = { Type = "oneshot"; User = cfg.user; WorkingDirectory = cfg.projectDir; };
-      path = [ pkgs.bash pkgs.ffmpeg-full pkgs.python312 pkgs.gcc.cc.lib pkgs.zlib ];
+      path = [ pkgs.bash pkgs.ffmpeg-full pkgs.python312 pkgs.fontconfig pkgs.dejavu_fonts ];
       script = ''
         set -eu
         source ${cfg.projectDir}/.env
