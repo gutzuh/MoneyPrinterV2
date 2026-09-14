@@ -82,8 +82,7 @@ python scripts/family_guy_short.py input/video.mp4 \
 
 - Página oficial da série na FOX: <https://www.fox.com/family-guy/>
 - Catálogo oficial Disney+: <https://www.disneyplus.com/>
-- Canal oficial Family Guy no YouTube: procure o canal verificado e confirme o
-  proprietário antes de usar qualquer trecho.
+- Canal oficial Family Guy no YouTube: <https://www.youtube.com/@FamilyGuyFOX>
 
 Assinar um streaming permite assistir, mas não concede automaticamente licença
 para republicar. Para uma operação comercial estável, solicite autorização ao
