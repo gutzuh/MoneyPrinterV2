@@ -4,6 +4,23 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def _load_dotenv(path: Path) -> None:
+    """Load simple KEY=VALUE entries without adding a runtime dependency."""
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[7:].lstrip()
+        name, value = line.split("=", 1)
+        name = name.strip()
+        value = value.strip().strip('"').strip("'")
+        if name and name not in os.environ:
+            os.environ[name] = value
+
+
 @dataclass(frozen=True)
 class ShortsSettings:
     groq_api_key: str
@@ -25,6 +42,7 @@ class ShortsSettings:
 
 
 def load_settings(config_path: str = "config.json", require_groq: bool = True) -> ShortsSettings:
+    _load_dotenv(Path(config_path).resolve().parent / ".env")
     payload: dict = {}
     path = Path(config_path)
     if path.exists():
@@ -36,6 +54,8 @@ def load_settings(config_path: str = "config.json", require_groq: bool = True) -
     api_key = os.environ.get("GROQ_API_KEY", "").strip() or str(
         raw.get("groq_api_key", "")
     ).strip()
+    if api_key == "REPLACE_WITH_YOUR_GROQ_API_KEY":
+        api_key = ""
     if require_groq and not api_key:
         raise ValueError("Set GROQ_API_KEY before generating a short")
 

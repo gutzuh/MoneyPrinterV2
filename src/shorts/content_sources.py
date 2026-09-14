@@ -5,6 +5,8 @@ import random
 from pathlib import Path
 
 import requests
+from PIL import Image
+from io import BytesIO
 
 from .models import ContentTopic
 
@@ -89,3 +91,47 @@ def collect_topic(categories: tuple[str, ...], state_path: str, seed: int | None
             _remember(state, topic_id, seen)
             return topic
     raise RuntimeError("Could not find an unused topic after 12 attempts")
+
+
+def download_topic_images(topic: ContentTopic, output_dir: str, count: int = 4) -> list[str]:
+    """Download freely hosted Wikimedia thumbnails related to the selected topic."""
+    pages = []
+    for namespace in (0, 6):
+        api_url = WIKIPEDIA_API if namespace == 0 else "https://commons.wikimedia.org/w/api.php"
+        params = {
+            "action": "query", "generator": "search", "gsrsearch": topic.title,
+            "gsrnamespace": namespace, "gsrlimit": max(count + 2, 6),
+            "prop": "pageimages|info" if namespace == 0 else "imageinfo",
+            "piprop": "thumbnail" if namespace == 0 else None,
+            "pithumbsize": 1080 if namespace == 0 else None,
+            "iiprop": "url" if namespace == 6 else None,
+            "iiurlwidth": 1080 if namespace == 6 else None,
+            "format": "json", "formatversion": 2,
+        }
+        params = {key: value for key, value in params.items() if value is not None}
+        response = requests.get(api_url, params=params, headers={"User-Agent": USER_AGENT}, timeout=30)
+        response.raise_for_status()
+        pages.extend(response.json().get("query", {}).get("pages", []))
+        if len(pages) >= count:
+            break
+    paths: list[str] = []
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    for index, page in enumerate(pages):
+        imageinfo = page.get("imageinfo", [])
+        image_url = page.get("thumbnail", {}).get("source")
+        if imageinfo:
+            image_url = imageinfo[0].get("thumburl") or imageinfo[0].get("url")
+        if not image_url:
+            continue
+        try:
+            response = requests.get(image_url, headers={"User-Agent": USER_AGENT}, timeout=30)
+            response.raise_for_status()
+            image = Image.open(BytesIO(response.content)).convert("RGB")
+            path = Path(output_dir) / f"image-{len(paths) + 1}.jpg"
+            image.save(path, "JPEG", quality=92)
+            paths.append(str(path))
+        except (OSError, requests.RequestException):
+            continue
+        if len(paths) >= count:
+            break
+    return paths
