@@ -64,7 +64,7 @@ def _wikipedia_topic(category: str, rng: random.Random) -> ContentTopic:
 def _history_topic(rng: random.Random) -> ContentTopic:
     today = dt.datetime.now(dt.timezone.utc)
     response = requests.get(
-        f"https://api.wikimedia.org/feed/v1/wikipedia/pt/onthisday/events/{today.month:02}/{today.day:02}",
+        f"https://pt.wikipedia.org/api/rest_v1/feed/onthisday/events/{today.month:02}/{today.day:02}",
         headers={"User-Agent": USER_AGENT}, timeout=30,
     )
     response.raise_for_status()
