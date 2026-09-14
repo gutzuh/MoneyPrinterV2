@@ -126,6 +126,10 @@ def create_topic_card(title: str, category: str, output_path: str) -> str:
         Path("/run/current-system/sw/share/fonts/truetype/DejaVuSans-Bold.ttf"),
         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
     ]
+    if shutil.which("fc-match"):
+        match = subprocess.run(["fc-match", "-f", "%{file}", "DejaVu Sans:style=Bold"], capture_output=True, text=True)
+        if match.returncode == 0 and match.stdout:
+            candidates.insert(0, Path(match.stdout))
     font_path = next((path for path in candidates if path.exists()), None)
     font = ImageFont.truetype(str(font_path), 84) if font_path else ImageFont.load_default()
     label_font = ImageFont.truetype(str(font_path), 40) if font_path else ImageFont.load_default()
