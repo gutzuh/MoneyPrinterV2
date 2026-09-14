@@ -13,6 +13,7 @@ if str(SRC_DIR) not in sys.path:
 from shorts.editor import write_srt
 from shorts.models import ShortPlan, TranscriptSegment
 from shorts.settings import load_settings
+from shorts.editor import create_topic_card
 
 
 class ShortsPipelineTests(unittest.TestCase):
@@ -34,6 +35,12 @@ class ShortsPipelineTests(unittest.TestCase):
                 settings = load_settings(str(config))
             self.assertEqual(settings.groq_api_key, "secret")
             self.assertEqual(settings.groq_model, "test-model")
+
+    def test_topic_card(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "card.jpg"
+            create_topic_card("Uma curiosidade de teste", "curiosidade", str(path))
+            self.assertTrue(path.is_file())
 
 
 if __name__ == "__main__":
