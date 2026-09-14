@@ -19,6 +19,9 @@ class ShortsSettings:
     youtube_client_secrets: str = "client_secret.json"
     youtube_token_file: str = ".mp/youtube_token.json"
     youtube_privacy: str = "private"
+    auto_categories: tuple[str, ...] = ("historia", "tecnologia", "curiosidade")
+    auto_target_duration: int = 32
+    tts_rate: str = "+8%"
 
 
 def load_settings(config_path: str = "config.json", require_groq: bool = True) -> ShortsSettings:
@@ -53,4 +56,7 @@ def load_settings(config_path: str = "config.json", require_groq: bool = True) -
         youtube_client_secrets=str(value("youtube_client_secrets", "client_secret.json")),
         youtube_token_file=str(value("youtube_token_file", ".mp/youtube_token.json")),
         youtube_privacy=str(value("youtube_privacy", "private")),
+        auto_categories=tuple(value("auto_categories", ["historia", "tecnologia", "curiosidade"])),
+        auto_target_duration=int(value("auto_target_duration", 32)),
+        tts_rate=str(value("tts_rate", "+8%")),
     )

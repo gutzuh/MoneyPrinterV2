@@ -57,10 +57,13 @@ def main() -> int:
 
     narration_path = job_dir / "narration.mp3"
     print("[3/5] Gerando voz em português...")
-    synthesize(plan.narration, settings.tts_voice, str(narration_path))
+    synthesize(plan.narration, settings.tts_voice, str(narration_path), settings.tts_rate)
     fitted_narration = fit_narration(
         str(narration_path), plan.duration, str(job_dir / "narration-fit.mp3")
     )
+    # Avoid a long silent tail when the generated narration is shorter than the scene.
+    from shorts.editor import media_duration
+    plan = type(plan)(plan.start, plan.start + min(plan.duration, media_duration(fitted_narration) + 0.5), plan.narration, plan.title, plan.description, plan.tags)
 
     print("[4/5] Criando legendas e renderizando 1080x1920...")
     narration_segments = transcribe(fitted_narration, settings, words_per_caption=3)

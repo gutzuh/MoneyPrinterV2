@@ -20,3 +20,12 @@ class ShortPlan:
     @property
     def duration(self) -> float:
         return self.end - self.start
+
+
+@dataclass(frozen=True)
+class ContentTopic:
+    category: str
+    title: str
+    facts: str
+    source_name: str
+    source_url: str
